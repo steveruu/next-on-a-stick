@@ -104,4 +104,4 @@ class CustomCacheHandler {
     }
 }
 
-module.exports = CustomCacheHandler;
+export default CustomCacheHandler;
