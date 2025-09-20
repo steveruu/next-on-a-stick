@@ -62,11 +62,8 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./standalone/
 # Copy the complete .next directory for staging in a different location
 COPY --from=builder --chown=nextjs:nodejs /app/.next ./next_build/
 
-# Copy Prisma modules separately since they're not included in standalone
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/prisma ./node_modules/prisma
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.bin/prisma ./node_modules/.bin/prisma
+# Copy the full node_modules as backup in case standalone is incomplete
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules/
 
 ENV PORT=8080
 ENV HOSTNAME="0.0.0.0"
