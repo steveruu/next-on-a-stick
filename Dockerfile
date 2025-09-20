@@ -57,17 +57,26 @@ COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 # Create minimal .next directory structure for Next.js
 RUN mkdir -p .next && chown nextjs:nodejs .next
 
+# Create /data directory for writable storage and cache first
+RUN mkdir -p /data/next-cache /data/next-server && chown -R nextjs:nodejs /data
+
 # Automatically leverage output traces to reduce image size
 # https://nextjs.org/docs/advanced-features/output-file-tracing
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# Create /data directory for writable storage and cache
-RUN mkdir -p /data/next-cache && chown -R nextjs:nodejs /data
+# Move any existing server files to writable location, then create symlinks
+RUN if [ -d .next/server ]; then \
+        cp -r .next/server/* /data/next-server/ 2>/dev/null || true; \
+        rm -rf .next/server; \
+    fi
 
-# Create symlink for Next.js cache to point to writable location
-# Remove any existing cache directory and create symlink
+# Create symlinks for Next.js cache and server to point to writable locations
 RUN rm -rf .next/cache && ln -sf /data/next-cache .next/cache
+RUN ln -sf /data/next-server .next/server
+
+# Ensure proper ownership
+RUN chown -R nextjs:nodejs /data
 
 USER nextjs
 

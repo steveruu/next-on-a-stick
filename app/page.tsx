@@ -2,6 +2,9 @@ import { Suspense } from 'react'
 import TaskForm from './components/TaskForm'
 import TaskList from './components/TaskList'
 
+// Cache this page but revalidate every 60 seconds
+export const revalidate = 60
+
 export default function Home() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
