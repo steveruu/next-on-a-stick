@@ -65,9 +65,6 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 # Create /data directory for writable storage, cache, and server files
 RUN mkdir -p /data/next-cache /data/next-server && chown -R nextjs:nodejs /data
 
-# Copy any existing server files from builder to writable location
-COPY --from=builder --chown=nextjs:nodejs /app/.next/server/ /data/next-server/ || true
-
 # Create symlinks for Next.js cache and server to point to writable locations
 # Remove any existing directories and create symlinks
 RUN rm -rf .next/cache .next/server && \
