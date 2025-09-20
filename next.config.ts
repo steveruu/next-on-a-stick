@@ -11,7 +11,6 @@ const nextConfig: NextConfig = {
 
     // Configure output tracing for standalone build
     outputFileTracingRoot: process.cwd(),
-    cacheHandler: require.resolve("./cache-handler.mjs"),
 };
 
 export default nextConfig;

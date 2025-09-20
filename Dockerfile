@@ -52,8 +52,7 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 
-# Copy custom cache handler
-COPY --from=builder /app/cache-handler.mjs ./cache-handler.mjs
+# No custom cache handler needed - using symlinks instead
 
 # Create minimal .next directory structure for Next.js
 RUN mkdir -p .next && chown nextjs:nodejs .next
@@ -64,10 +63,11 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
 # Create /data directory for writable storage and cache
-RUN mkdir -p /data/.next-cache && chown -R nextjs:nodejs /data
+RUN mkdir -p /data/next-cache && chown -R nextjs:nodejs /data
 
 # Create symlink for Next.js cache to point to writable location
-RUN ln -sf /data/.next-cache .next/cache
+# Remove any existing cache directory and create symlink
+RUN rm -rf .next/cache && ln -sf /data/next-cache .next/cache
 
 USER nextjs
 
