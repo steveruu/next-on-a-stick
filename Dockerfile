@@ -24,9 +24,6 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Create the /data directory and set ownership for the build
-RUN mkdir -p /data && chmod 755 /data
-
 # Generate Prisma client
 RUN npx prisma generate
 
@@ -34,9 +31,6 @@ RUN npx prisma generate
 # Learn more here: https://nextjs.org/telemetry
 # Uncomment the following line in case you want to disable telemetry during the build.
 # ENV NEXT_TELEMETRY_DISABLED=1
-
-# Set environment variable to use /data/.next as distDir
-ENV DOCKER_ENV=true
 
 RUN \
   if [ -f yarn.lock ]; then yarn run build; \
@@ -50,7 +44,6 @@ FROM base AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
-ENV DOCKER_ENV=true
 # Uncomment the following line in case you want to disable telemetry during runtime.
 # ENV NEXT_TELEMETRY_DISABLED=1
 
@@ -63,9 +56,11 @@ RUN mkdir -p /data/.next && chown -R nextjs:nodejs /data
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/prisma ./prisma
 
-# Copy the build artifacts from /data/.next (where distDir puts them)
-COPY --from=builder --chown=nextjs:nodejs /data/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /data/.next ./next_build/
+# Copy the standalone server files
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+
+# Copy the complete .next directory for staging
+COPY --from=builder --chown=nextjs:nodejs /app/.next ./next_build/
 
 # The standalone output might not include the prisma CLI and its engine, so we copy it over manually.
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma

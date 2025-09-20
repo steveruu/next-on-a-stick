@@ -7,7 +7,6 @@ mkdir -p /data/.next
 
 # On container startup, copy the pre-built Next.js build artifacts
 # to the writable /data volume, if they don't already exist.
-# Since we built with distDir=/data/.next, we need to copy from our staging location.
 if [ ! -f /data/.next/BUILD_ID ]; then
   echo "Initializing writable .next volume from build artifacts..."
   
@@ -20,6 +19,16 @@ if [ ! -f /data/.next/BUILD_ID ]; then
     echo "Warning: No build artifacts found in /app/next_build"
   fi
 fi
+
+# Create a symbolic link so the standalone server can find the .next directory
+# Remove any existing .next directory/link in /app
+if [ -e "/app/.next" ]; then
+  rm -rf /app/.next
+fi
+
+# Create symbolic link from /app/.next to /data/.next
+echo "Creating symbolic link from /app/.next to /data/.next..."
+ln -s /data/.next /app/.next
 
 # Apply database migrations.
 # NOTE: You've commented this out. Uncomment it to run migrations on startup.
