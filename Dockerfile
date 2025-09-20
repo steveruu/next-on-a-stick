@@ -26,8 +26,14 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # Generate Prisma client
 RUN npx prisma generate
 
-# Build application
-RUN npm run build
+# Build application (replace your current RUN npm run build)
+RUN npm run build \
+ && echo "=== BUILD: show .next root ===" \
+ && ls -la /app/.next || true \
+ && echo "=== BUILD: show .next/server (if present) ===" \
+ && ls -la /app/.next/server || true \
+ && echo "=== BUILD: check pages-manifest.json presence ===" \
+ && if [ -f /app/.next/server/pages-manifest.json ]; then echo "pages-manifest.json: PRESENT"; else echo "pages-manifest.json: MISSING"; fi
 
 # Production image, copy all the files and run next
 FROM base AS runner
