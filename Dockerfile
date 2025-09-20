@@ -64,12 +64,9 @@ COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modul
 # And the executable itself
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.bin/prisma ./node_modules/.bin/prisma
 
-# Copy production build output to a temporary location.
+# Copy entire production build output to a temporary location.
 # The entrypoint script will copy this to the writable /data volume on startup.
-COPY --from=builder --chown=nextjs:nodejs /app/.next/BUILD_ID ./standalone_next/
-COPY --from=builder --chown=nextjs:nodejs /app/.next/routes-manifest.json ./standalone_next/
-COPY --from=builder --chown=nextjs:nodejs /app/.next/server ./standalone_next/server
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./standalone_next/static
+COPY --from=builder --chown=nextjs:nodejs /app/.next/. ./standalone_next/
 
 # The .next directory from the standalone output is read-only.
 # We remove it and replace it with a symlink to the writable /data directory.
