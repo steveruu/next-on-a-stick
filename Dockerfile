@@ -58,24 +58,22 @@ COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 RUN mkdir -p .next && chown nextjs:nodejs .next
 
 # Create /data directory for writable storage and cache first
-RUN mkdir -p /data/next-cache && chown -R nextjs:nodejs /data
+RUN mkdir -p /data/next-cache /data/next-server && chown -R nextjs:nodejs /data
 
 # Automatically leverage output traces to reduce image size
 # https://nextjs.org/docs/advanced-features/output-file-tracing
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# Create symlink for cache only (not entire server directory)
+# Move any existing server files to writable location, then create symlinks
+RUN if [ -d .next/server ]; then \
+        cp -r .next/server/* /data/next-server/ 2>/dev/null || true; \
+        rm -rf .next/server; \
+    fi
+
+# Create symlinks for Next.js cache and server to point to writable locations
 RUN rm -rf .next/cache && ln -sf /data/next-cache .next/cache
-
-# Create writable directory for server app cache (where prerender cache goes)
-RUN mkdir -p /data/server-app && chown -R nextjs:nodejs /data/server-app
-
-# Only symlink the app cache directory (not the entire server directory)
-# This preserves essential files like pages-manifest.json while making cache writable
-RUN mkdir -p .next/server
-RUN if [ -d .next/server/app ]; then rm -rf .next/server/app; fi
-RUN ln -sf /data/server-app .next/server/app
+RUN ln -sf /data/next-server .next/server
 
 # Ensure proper ownership
 RUN chown -R nextjs:nodejs /data
