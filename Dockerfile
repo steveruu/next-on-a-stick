@@ -57,6 +57,11 @@ COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder /app/prisma ./prisma
 
+# The standalone output might not include the prisma CLI and its engine, so we copy it over manually.
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/prisma ./node_modules/prisma
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
+
 # Create a symlink for .next to our writable /data/.next directory
 RUN ln -s /data/.next ./.next
 

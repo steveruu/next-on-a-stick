@@ -6,7 +6,7 @@ set -e
 
 # Apply database migrations
 echo "Applying database migrations..."
-npx prisma db push
+npx --no-install prisma db push
 
 # Start the application
 echo "Starting Next.js application..."
