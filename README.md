@@ -126,6 +126,7 @@ docker exec -it <container-id> sh -lc "./node_modules/.bin/prisma db push"
 
 - this project still NEEDS to be TESTED properly and thoroughly
 - check node_modules copying
+- prisma migrations are basically untested
 
 ## notes
 
