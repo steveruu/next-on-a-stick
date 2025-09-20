@@ -5,18 +5,17 @@ set -e
 # We'll run the entire server from /data to avoid read-only filesystem issues.
 mkdir -p /data/.next
 
-# Copy server files to writable location on first run
+# Copy the complete standalone application to writable location on first run
 if [ ! -f /data/server.js ]; then
-  echo "Setting up server in writable directory..."
+  echo "Setting up standalone server in writable directory..."
   
-  # Copy essential server files
-  cp /app/server.js /data/ 2>/dev/null || echo "Warning: server.js not found"
-  cp /app/package.json /data/ 2>/dev/null || echo "Warning: package.json not found"
-  
-  # Copy node_modules if needed for standalone
-  if [ -d "/app/node_modules" ]; then
-    echo "Copying node_modules to writable location..."
-    cp -r /app/node_modules /data/
+  # Copy the complete standalone build (includes bundled dependencies)
+  if [ -d "/app/standalone" ]; then
+    echo "Copying standalone application..."
+    cp -r /app/standalone/. /data/
+    echo "Standalone application copied."
+  else
+    echo "Warning: No standalone build found in /app/standalone"
   fi
   
   # Copy public files 
@@ -25,10 +24,22 @@ if [ ! -f /data/server.js ]; then
     cp -r /app/public /data/
   fi
   
-  # Copy prisma files
+  # Copy prisma files for database operations
   if [ -d "/app/prisma" ]; then
     echo "Copying Prisma files..."
     cp -r /app/prisma /data/
+  fi
+  
+  # Copy additional node_modules for prisma if needed
+  if [ -d "/app/node_modules/.prisma" ]; then
+    echo "Copying Prisma runtime files..."
+    mkdir -p /data/node_modules
+    cp -r /app/node_modules/.prisma /data/node_modules/
+    cp -r /app/node_modules/prisma /data/node_modules/
+    cp -r /app/node_modules/@prisma /data/node_modules/
+    # Copy the prisma binary
+    mkdir -p /data/node_modules/.bin
+    cp /app/node_modules/.bin/prisma /data/node_modules/.bin/ 2>/dev/null || echo "Prisma binary not found"
   fi
 fi
 
