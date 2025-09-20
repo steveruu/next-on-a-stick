@@ -64,12 +64,14 @@ COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modul
 # And the executable itself
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.bin/prisma ./node_modules/.bin/prisma
 
-# Create a symlink for .next to our writable /data/.next directory
-RUN ln -s /data/.next ./.next
+# Copy production build output to a temporary location.
+# The entrypoint script will copy this to the writable /data volume on startup.
+COPY --from=builder --chown=nextjs:nodejs /app/.next/server ./standalone_next/server
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./standalone_next/static
 
-# Copy static and server files into the writable directory through the symlink
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-COPY --from=builder --chown=nextjs:nodejs /app/.next/server ./.next/server
+# The .next directory from the standalone output is read-only.
+# We remove it and replace it with a symlink to the writable /data directory.
+RUN rm -rf ./.next && ln -s /data/.next ./.next
 
 
 ENV PORT=3000
