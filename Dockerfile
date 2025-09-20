@@ -64,16 +64,19 @@ COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modul
 # And the executable itself
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.bin/prisma ./node_modules/.bin/prisma
 
-# Copy entire production build output to a temporary location.
-# The entrypoint script will copy this to the writable /data volume on startup.
+# Copy the standalone server files to root
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+
+# Copy static files to the public directory for serving
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./public/_next/static
+
+# Copy the complete .next directory to a backup location for the entrypoint script
 COPY --from=builder --chown=nextjs:nodejs /app/.next/. ./standalone_next/
 
-# The .next directory from the standalone output is read-only.
-# We remove it and replace it with a symlink to the writable /data directory.
-RUN rm -rf ./.next && ln -s /data/.next ./.next
+# Create the .next symlink to the writable /data directory
+RUN ln -s /data/.next ./.next
 
-
-ENV PORT=3000
+ENV PORT=8080
 ENV HOSTNAME="0.0.0.0"
 ENV DATABASE_URL="file:/data/database.db"
 
@@ -82,7 +85,7 @@ RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 USER nextjs
 
-EXPOSE 3000
+EXPOSE 8080
 
 ENTRYPOINT ["docker-entrypoint.sh"]
 
