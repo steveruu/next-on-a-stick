@@ -53,7 +53,7 @@ COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 
 # Copy custom cache handler
-COPY --from=builder /app/cache-handler.js ./cache-handler.js
+COPY --from=builder /app/cache-handler.mjs ./cache-handler.mjs
 
 # Create minimal .next directory structure for Next.js
 RUN mkdir -p .next && chown nextjs:nodejs .next
