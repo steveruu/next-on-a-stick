@@ -1,116 +1,128 @@
-# next.js task manager — docker how‑to
+# next.js on docker (read‑only filesystem guide)
 
-this is a small next.js + prisma + sqlite app. this guide shows you how to run it with docker and how to work on it locally. everything here is written as simple, step‑by‑step instructions.
+this repo shows one way to deploy a next.js app on docker when the image filesystem is read‑only. the trick is to run the app from a writable directory (`/data`) and keep the image itself immutable.
 
-## what you’ll need
-- **docker** installed
-- **git** to clone the repo
-- **node 20+** only if you want to run it locally (not needed for docker)
+## why read‑only matters
 
-## quick start (docker)
-1) clone the repo
+- **next.js writes at runtime**: `.next` (build id, cache, isr) needs writes
+- **databases need storage**: sqlite file, prisma migrations
+- **immutable images are safer**: fewer surprises; persistent data lives in a volume
+
+## how the dockerfile is structured
+
+the dockerfile uses a 3‑stage build to keep the final image small and secure:
+
+1. **deps** (install dependencies)
+   - picks your package manager based on the lockfile
+   - installs production deps in a clean layer
+
+2. **builder** (compile app)
+   - copies source
+   - runs `npx prisma generate` (so prisma client matches your schema)
+   - builds next.js with `output: "standalone"` so the server can run without the whole repo
+
+3. **runner** (minimal runtime)
+   - creates a non‑root user `nextjs`
+   - prepares a writable directory `/data/.next`
+   - copies built bits:
+     - `/.next/standalone` → `/app/standalone` (server code)
+     - `/.next` → `/app/next_build` (full build artifacts)
+     - `/node_modules` → `/app/node_modules` (fallback if standalone misses anything)
+   - sets runtime envs `PORT=8080`, `HOSTNAME=0.0.0.0`, and a default `DATABASE_URL=file:/data/database.db`
+   - switches to user `nextjs`, sets `WORKDIR /data`, and delegates startup to the entrypoint
+
+the container exposes port `8080` and starts with `node server.js` (after the entrypoint finishes preparing files in `/data`).
+
+## what the entrypoint does (step by step)
+
+the script `docker-entrypoint.sh` makes sure everything the app needs is in a writable place:
+
+1. creates `/data/.next` (writable)
+2. on first run (no `/data/server.js` yet):
+   - copies the standalone app from `/app/standalone` to `/data`
+   - copies `public/` and `prisma/` so they’re available at runtime
+   - if needed, copies the full `/app/node_modules` into `/data` (standalone fallback, prisma binaries, etc.)
+3. syncs build artifacts: copies `/app/next_build` → `/data/.next` if newer or missing
+4. checks required files exist: `server.js` and `.next/BUILD_ID`
+5. finally `exec`s the container command (`node server.js`), inheriting signals properly
+
+result: the app actually runs from `/data` (a volume), while the image stays read‑only.
+
+## deploy: build and run
+
+build the image:
+
 ```bash
-git clone <your-repo-url>
-cd dockertest
+docker build -t nextjs-rofs .
 ```
 
-2) build the image
-```bash
-docker build -t task-manager-app .
-```
+run it (ephemeral data):
 
-3) run the container
 ```bash
 docker run --rm \
   -p 8080:8080 \
   -e DATABASE_URL="file:/data/database.db" \
-  task-manager-app
+  nextjs-rofs
 ```
 
-4) open the app
-- go to `http://localhost:8080`
+run it with persistent data volume:
 
-optional (persist data across runs):
+bash/zsh:
+
 ```bash
 mkdir -p ./data
 docker run --rm \
   -p 8080:8080 \
   -e DATABASE_URL="file:/data/database.db" \
-  -v "${PWD}/data:/data" \
-  task-manager-app
+  -v "$(pwd)/data:/data" \
+  nextjs-rofs
 ```
 
-## quick start (local dev)
-use this if you want to edit code without docker.
+windows powershell:
 
-```bash
-npm install
-npx prisma generate
-npx prisma db push
-npm run dev
+```powershell
+mkdir data -ea 0
+docker run --rm `
+  -p 8080:8080 `
+  -e DATABASE_URL="file:/data/database.db" `
+  -v "${pwd}/data:/data" `
+  nextjs-rofs
 ```
 
-app will start on `http://localhost:3000`.
+open `http://localhost:8080`.
 
-## environment variables
-- **DATABASE_URL**: for docker use `file:/data/database.db`
+## environment
 
-you can set envs with `-e VAR=value` on `docker run`, or with a `.env` file if your platform supports it.
+- `DATABASE_URL` → use `file:/data/database.db` for sqlite stored in the mounted `/data` volume
+- `PORT` → defaults to `8080` in the image
 
-## how the docker image works (in plain words)
-- **multi‑stage build** keeps the runtime image small and secure
-  - `deps`: installs production dependencies
-  - `builder`: copies source, builds next.js (standalone output), generates prisma client
-  - `runner`: contains only what’s needed to run
-- **entrypoint** prepares a writable place at `/data` (because container filesystems are read‑only by default), then:
-  - copies the built app to `/data`
-  - copies `.next` artifacts to `/data/.next`
-  - copies full `node_modules` so everything resolves correctly
-  - starts the server with `node server.js`
+set envs with `-e VAR=value` on `docker run` or via your orchestrator.
 
-## common docker commands
+## prisma and migrations (optional)
+
+the entrypoint includes a commented example to run prisma at startup. if you want automatic schema sync:
+
+1. uncomment the lines in `docker-entrypoint.sh` that run `prisma db push`
+2. ensure `node_modules/.bin/prisma` is available in `/data` (the script already copies required prisma bits if needed)
+
+for manual runs:
+
 ```bash
-# build
-docker build -t task-manager-app .
-
-# run (ephemeral)
-docker run --rm -p 8080:8080 -e DATABASE_URL="file:/data/database.db" task-manager-app
-
-# run with persistent data
-mkdir -p ./data
-docker run --rm -p 8080:8080 -e DATABASE_URL="file:/data/database.db" -v "${PWD}/data:/data" task-manager-app
-
-# tail logs
-docker logs <container-id>
+docker exec -it <container-id> sh -lc "./node_modules/.bin/prisma db push"
 ```
 
 ## troubleshooting
-- **"cannot find module 'next'"**
-  - use the provided docker image/entrypoint; it copies full `node_modules` into `/data` so runtime has everything it needs
 
-- **"read‑only file system"**
-  - the app runs from `/data`, which is writable; make sure you’re not overriding the entrypoint and that `/data` exists (use `-v ${PWD}/data:/data` if you want persistence)
+- **cannot find module 'next'**
+  - the entrypoint copies full `node_modules` into `/data` if the standalone bundle is missing something
 
-- **"404 on routes"**
-  - ensure `.next` build artifacts are copied into `/data/.next` (the default entrypoint does this for you)
+- **read‑only file system**
+  - the app runs from `/data`. don’t override the entrypoint; mount a volume to `/data` if you need persistence
 
-## project layout (what matters)
-```
-dockertest/
-├── app/                   # next.js (app router)
-│   ├── lib/
-│   │   └── db.ts         # prisma client
-│   └── page.tsx          # main page
-├── prisma/
-│   └── schema.prisma     # database schema
-├── Dockerfile            # multi‑stage build
-├── docker-entrypoint.sh  # startup script (handles writable /data)
-├── next.config.ts        # next.js config (standalone output)
-└── package.json
-```
+- **404 on routes**
+  - ensure `.next` artifacts are present under `/data/.next` (the entrypoint copies from `/app/next_build`)
 
-## tips
-- prefer the docker workflow in production; it’s preconfigured for a read‑only filesystem and persistent volumes
-- for local hacking, run `npm run dev` and iterate fast
+## notes
 
-that’s it — you’re ready to build and ship.
+- the image uses a non‑root user and a writable volume to keep runtime safe and predictable
+- next.js standalone output plus a tiny entrypoint is a good fit for immutable images
