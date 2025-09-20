@@ -9,6 +9,7 @@ export default class CustomCacheHandler {
     constructor(options) {
         this.options = options;
         this.ensureCacheDir();
+        this.clearStaleCache();
     }
 
     async ensureCacheDir() {
@@ -19,8 +20,47 @@ export default class CustomCacheHandler {
         }
     }
 
+    async clearStaleCache() {
+        // Clear cache on startup to prevent stale server action IDs
+        try {
+            const deploymentMarker = path.join(cacheDir, "deployment.marker");
+            const buildId = process.env.BUILD_ID || Date.now().toString();
+
+            let shouldClear = false;
+            try {
+                const lastBuildId = await fs.readFile(deploymentMarker, "utf8");
+                if (lastBuildId !== buildId) {
+                    shouldClear = true;
+                }
+            } catch {
+                // File doesn't exist, first run
+                shouldClear = true;
+            }
+
+            if (shouldClear) {
+                console.log("Clearing stale cache for new deployment");
+                const files = await fs.readdir(cacheDir);
+                await Promise.all(
+                    files
+                        .filter((file) => file.endsWith(".json"))
+                        .map((file) =>
+                            fs.unlink(path.join(cacheDir, file)).catch(() => {})
+                        )
+                );
+                await fs.writeFile(deploymentMarker, buildId);
+            }
+        } catch (error) {
+            console.warn("Failed to clear stale cache:", error);
+        }
+    }
+
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     async get(key, _fetchCache, _fetchUrl, _fetchIdx) {
+        // Don't cache server actions as they have deployment-specific IDs
+        if (this.isServerAction(key)) {
+            return null;
+        }
+
         try {
             const filePath = path.join(
                 cacheDir,
@@ -48,6 +88,11 @@ export default class CustomCacheHandler {
     }
 
     async set(key, data, ctx) {
+        // Don't cache server actions as they have deployment-specific IDs
+        if (this.isServerAction(key)) {
+            return;
+        }
+
         try {
             await this.ensureCacheDir();
             const filePath = path.join(
@@ -106,6 +151,16 @@ export default class CustomCacheHandler {
         } catch (error) {
             console.warn("Failed to revalidate tag:", error);
         }
+    }
+
+    isServerAction(key) {
+        // Server actions typically have specific patterns in their keys
+        return (
+            key.includes("server-action") ||
+            key.includes("action-") ||
+            /^[a-f0-9]{40,}$/.test(key) || // Hex hash pattern like the error shows
+            key.includes("$$ACTION_")
+        );
     }
 
     sanitizeKey(key) {
