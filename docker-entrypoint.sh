@@ -10,11 +10,12 @@ mkdir -p /data/.next/static
 # to the writable /data volume, if they don't already exist.
 # This "seeds" the volume with the build artifacts, but allows the running
 # application to modify them (e.g., for ISR).
-if [ ! -f /data/.next/server/pages-manifest.json ]; then
+if [ ! -f /data/.next/BUILD_ID ]; then
   echo "Initializing writable .next volume from build artifacts..."
-  # Copy into the writable /data directory directly.
-  cp -a /app/standalone_next/server/. /data/.next/server/
-  cp -a /app/standalone_next/static/. /data/.next/static/
+  # Use `cp -r` to avoid trying to preserve ownership, which fails on some volume mounts.
+  cp -r /app/standalone_next/server/. /data/.next/server/
+  cp -r /app/standalone_next/static/. /data/.next/static/
+  cp /app/standalone_next/BUILD_ID /data/.next/BUILD_ID
 fi
 
 # Apply database migrations.

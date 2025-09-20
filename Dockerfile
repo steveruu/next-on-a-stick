@@ -66,6 +66,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.bin/prisma ./node_m
 
 # Copy production build output to a temporary location.
 # The entrypoint script will copy this to the writable /data volume on startup.
+COPY --from=builder --chown=nextjs:nodejs /app/.next/BUILD_ID ./standalone_next/
 COPY --from=builder --chown=nextjs:nodejs /app/.next/server ./standalone_next/server
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./standalone_next/static
 
