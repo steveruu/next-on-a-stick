@@ -5,11 +5,19 @@ import path from "path";
 const cacheDir =
     process.env.NODE_ENV === "production" ? "/data/.next-cache" : ".next/cache";
 
+// Global flag to ensure cache clearing only happens once per deployment
+let cacheCleared = false;
+
 export default class CustomCacheHandler {
     constructor(options) {
         this.options = options;
         this.ensureCacheDir();
-        this.clearStaleCache();
+
+        // Only clear cache once per deployment, not on every handler instance
+        if (!cacheCleared) {
+            this.clearStaleCache();
+            cacheCleared = true;
+        }
     }
 
     async ensureCacheDir() {
@@ -38,16 +46,24 @@ export default class CustomCacheHandler {
             }
 
             if (shouldClear) {
-                console.log("Clearing stale cache for new deployment");
+                console.log(
+                    "Clearing stale cache for new deployment (Build ID: " +
+                        buildId +
+                        ")"
+                );
                 const files = await fs.readdir(cacheDir);
+                const jsonFiles = files.filter((file) =>
+                    file.endsWith(".json")
+                );
                 await Promise.all(
-                    files
-                        .filter((file) => file.endsWith(".json"))
-                        .map((file) =>
-                            fs.unlink(path.join(cacheDir, file)).catch(() => {})
-                        )
+                    jsonFiles.map((file) =>
+                        fs.unlink(path.join(cacheDir, file)).catch(() => {})
+                    )
                 );
                 await fs.writeFile(deploymentMarker, buildId);
+                console.log(`Cache cleared: ${jsonFiles.length} files removed`);
+            } else {
+                console.log("Cache is up to date for current deployment");
             }
         } catch (error) {
             console.warn("Failed to clear stale cache:", error);
