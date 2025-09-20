@@ -23,6 +23,9 @@ COPY . .
 # Uncomment the following line in case you want to disable telemetry during the build.
 ENV NEXT_TELEMETRY_DISABLED=1
 
+# Generate Prisma client
+RUN npx prisma generate
+
 # Build application
 RUN npm run build
 
@@ -43,6 +46,11 @@ RUN adduser --system --uid 1001 nextjs
 
 # Copy the standalone build
 COPY --from=builder /app/public ./public
+
+# Copy Prisma schema and generated client
+COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 
 # Set the correct permission for prerender cache
 RUN mkdir .next
