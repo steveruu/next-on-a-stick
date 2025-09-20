@@ -16,6 +16,7 @@ if [ ! -f /data/.next/BUILD_ID ]; then
   cp -r /app/standalone_next/server/. /data/.next/server/
   cp -r /app/standalone_next/static/. /data/.next/static/
   cp /app/standalone_next/BUILD_ID /data/.next/BUILD_ID
+  cp /app/standalone_next/routes-manifest.json /data/.next/routes-manifest.json
 fi
 
 # Apply database migrations.
