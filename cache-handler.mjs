@@ -5,7 +5,7 @@ import path from "path";
 const cacheDir =
     process.env.NODE_ENV === "production" ? "/data/.next-cache" : ".next/cache";
 
-class CustomCacheHandler {
+export default class CustomCacheHandler {
     constructor(options) {
         this.options = options;
         this.ensureCacheDir();
@@ -19,7 +19,8 @@ class CustomCacheHandler {
         }
     }
 
-    async get(key) {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    async get(key, _fetchCache, _fetchUrl, _fetchIdx) {
         try {
             const filePath = path.join(
                 cacheDir,
@@ -29,11 +30,18 @@ class CustomCacheHandler {
             const parsed = JSON.parse(data);
 
             // Check if expired
-            if (parsed.expires && parsed.expires < Date.now()) {
+            if (
+                parsed.lastModified &&
+                parsed.revalidateAfter &&
+                Date.now() > parsed.revalidateAfter
+            ) {
                 return null;
             }
 
-            return parsed.value;
+            return {
+                lastModified: parsed.lastModified,
+                value: parsed.value,
+            };
         } catch {
             return null;
         }
@@ -47,11 +55,13 @@ class CustomCacheHandler {
                 `${this.sanitizeKey(key)}.json`
             );
 
+            const now = Date.now();
             const cacheData = {
+                lastModified: now,
                 value: data,
-                expires: ctx?.revalidate
-                    ? Date.now() + ctx.revalidate * 1000
-                    : null,
+                revalidateAfter: ctx?.revalidate
+                    ? now + ctx.revalidate * 1000
+                    : undefined,
                 tags: ctx?.tags || [],
             };
 
@@ -103,5 +113,3 @@ class CustomCacheHandler {
         return key.replace(/[<>:"/\\|?*]/g, "_");
     }
 }
-
-export default CustomCacheHandler;
