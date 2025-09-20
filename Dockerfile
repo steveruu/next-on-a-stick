@@ -66,8 +66,8 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 # Create /data directory for writable storage and cache
 RUN mkdir -p /data/.next-cache && chown -R nextjs:nodejs /data
 
-# Copy startup script
-COPY startup.sh ./startup.sh
+# Copy startup script from builder stage  
+COPY --from=builder /app/startup.sh ./startup.sh
 RUN chmod +x startup.sh
 
 # Create symlink for Next.js cache to point to writable location
