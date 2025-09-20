@@ -24,6 +24,9 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
+# Create the /data directory and set ownership for the build
+RUN mkdir -p /data && chmod 755 /data
+
 # Generate Prisma client
 RUN npx prisma generate
 
@@ -31,6 +34,9 @@ RUN npx prisma generate
 # Learn more here: https://nextjs.org/telemetry
 # Uncomment the following line in case you want to disable telemetry during the build.
 # ENV NEXT_TELEMETRY_DISABLED=1
+
+# Set environment variable to use /data/.next as distDir
+ENV DOCKER_ENV=true
 
 RUN \
   if [ -f yarn.lock ]; then yarn run build; \
@@ -44,6 +50,7 @@ FROM base AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
+ENV DOCKER_ENV=true
 # Uncomment the following line in case you want to disable telemetry during runtime.
 # ENV NEXT_TELEMETRY_DISABLED=1
 
@@ -54,8 +61,11 @@ RUN adduser --system --uid 1001 nextjs
 RUN mkdir -p /data/.next && chown -R nextjs:nodejs /data
 
 COPY --from=builder /app/public ./public
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder /app/prisma ./prisma
+
+# Copy the build artifacts from /data/.next (where distDir puts them)
+COPY --from=builder --chown=nextjs:nodejs /data/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /data/.next ./next_build/
 
 # The standalone output might not include the prisma CLI and its engine, so we copy it over manually.
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
@@ -63,18 +73,6 @@ COPY --from=builder --chown=nextjs:nodejs /app/node_modules/prisma ./node_module
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
 # And the executable itself
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.bin/prisma ./node_modules/.bin/prisma
-
-# Copy the standalone server files to root
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-
-# Copy static files to the public directory for serving
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./public/_next/static
-
-# Copy the complete .next directory to a backup location for the entrypoint script
-COPY --from=builder --chown=nextjs:nodejs /app/.next/. ./standalone_next/
-
-# Create the .next symlink to the writable /data directory
-RUN ln -s /data/.next ./.next
 
 ENV PORT=8080
 ENV HOSTNAME="0.0.0.0"
