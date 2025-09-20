@@ -52,17 +52,26 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 
-# Set the correct permission for prerender cache
-RUN mkdir .next
-RUN chown nextjs:nodejs .next
+# Copy custom cache handler
+COPY --from=builder /app/cache-handler.js ./cache-handler.js
+
+# Create minimal .next directory structure for Next.js
+RUN mkdir -p .next && chown nextjs:nodejs .next
 
 # Automatically leverage output traces to reduce image size
 # https://nextjs.org/docs/advanced-features/output-file-tracing
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# Create /data directory for writable storage
-RUN mkdir -p /data && chown nextjs:nodejs /data
+# Create /data directory for writable storage and cache
+RUN mkdir -p /data/.next-cache && chown -R nextjs:nodejs /data
+
+# Copy startup script
+COPY startup.sh ./startup.sh
+RUN chmod +x startup.sh
+
+# Create symlink for Next.js cache to point to writable location
+RUN ln -sf /data/.next-cache .next/cache
 
 USER nextjs
 
@@ -71,6 +80,5 @@ EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-# server.js is created by next build from the standalone output
-# https://nextjs.org/docs/pages/api-reference/next-config-js/output
-CMD ["node", "server.js"]
+# Use startup script to ensure directories exist
+CMD ["./startup.sh"]

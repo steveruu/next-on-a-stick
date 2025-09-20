@@ -17,7 +17,8 @@ if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
 // Initialize database (create tables if they don't exist)
 export async function initDatabase() {
     try {
-        await prisma.$executeRaw`PRAGMA journal_mode=WAL;`;
+        // Use $queryRaw for PRAGMA commands that return results
+        await prisma.$queryRaw`PRAGMA journal_mode=WAL;`;
         console.log("Database initialized successfully");
     } catch (error) {
         console.log("Database initialization error:", error);
