@@ -20,15 +20,13 @@ if [ ! -f /data/.next/BUILD_ID ]; then
   fi
 fi
 
-# Create a symbolic link so the standalone server can find the .next directory
-# Remove any existing .next directory/link in /app
-if [ -e "/app/.next" ]; then
-  rm -rf /app/.next
+# Create symbolic link so the server can find .next directory in the writable location
+if [ ! -e "/app/.next" ]; then
+  echo "Creating symbolic link from /app/.next to /data/.next..."
+  ln -s /data/.next /app/.next
+else
+  echo "Note: /app/.next already exists, server will use existing location"
 fi
-
-# Create symbolic link from /app/.next to /data/.next
-echo "Creating symbolic link from /app/.next to /data/.next..."
-ln -s /data/.next /app/.next
 
 # Apply database migrations.
 # NOTE: You've commented this out. Uncomment it to run migrations on startup.

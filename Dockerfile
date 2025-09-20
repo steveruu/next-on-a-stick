@@ -56,10 +56,17 @@ RUN mkdir -p /data/.next && chown -R nextjs:nodejs /data
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/prisma ./prisma
 
-# Copy the standalone server files
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+# Copy the standalone files, but exclude any .next subdirectory to avoid read-only conflicts
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./standalone_temp
+# Move only the files we need, avoiding the .next subdirectory
+RUN if [ -f "./standalone_temp/server.js" ]; then mv ./standalone_temp/server.js ./; fi
+RUN if [ -f "./standalone_temp/package.json" ]; then mv ./standalone_temp/package.json ./; fi  
+# Copy other files but not .next directory
+RUN find ./standalone_temp -maxdepth 1 -type f -not -name ".*" -exec mv {} ./ \;
+# Clean up temp directory
+RUN rm -rf ./standalone_temp
 
-# Copy the complete .next directory for staging
+# Copy the complete .next directory for staging in a different location
 COPY --from=builder --chown=nextjs:nodejs /app/.next ./next_build/
 
 # The standalone output might not include the prisma CLI and its engine, so we copy it over manually.
