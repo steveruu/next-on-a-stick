@@ -85,10 +85,13 @@ RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 USER nextjs
 
+# The server will run from /data (writable directory) instead of /app (read-only)
+WORKDIR /data
+
 EXPOSE 8080
 
 ENTRYPOINT ["docker-entrypoint.sh"]
 
-# server.js is created by next build from the standalone output
+# server.js will be copied to /data by the entrypoint script
 # https://nextjs.org/docs/pages/api-reference/config/next-config-js/output
 CMD ["node", "server.js"]

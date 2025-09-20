@@ -2,15 +2,40 @@
 set -e
 
 # The /data directory is the only writable location.
-# Ensure the directory structure that .next expects exists within /data.
+# We'll run the entire server from /data to avoid read-only filesystem issues.
 mkdir -p /data/.next
 
-# On container startup, copy the pre-built Next.js build artifacts
-# to the writable /data volume, if they don't already exist.
-if [ ! -f /data/.next/BUILD_ID ]; then
-  echo "Initializing writable .next volume from build artifacts..."
+# Copy server files to writable location on first run
+if [ ! -f /data/server.js ]; then
+  echo "Setting up server in writable directory..."
   
-  # Copy the Next.js build from our staging location
+  # Copy essential server files
+  cp /app/server.js /data/ 2>/dev/null || echo "Warning: server.js not found"
+  cp /app/package.json /data/ 2>/dev/null || echo "Warning: package.json not found"
+  
+  # Copy node_modules if needed for standalone
+  if [ -d "/app/node_modules" ]; then
+    echo "Copying node_modules to writable location..."
+    cp -r /app/node_modules /data/
+  fi
+  
+  # Copy public files 
+  if [ -d "/app/public" ]; then
+    echo "Copying public files..."
+    cp -r /app/public /data/
+  fi
+  
+  # Copy prisma files
+  if [ -d "/app/prisma" ]; then
+    echo "Copying Prisma files..."
+    cp -r /app/prisma /data/
+  fi
+fi
+
+# Copy/update the .next build artifacts to the writable location
+if [ ! -f /data/.next/BUILD_ID ] || [ /app/next_build -nt /data/.next ]; then
+  echo "Updating .next build artifacts in writable location..."
+  
   if [ -d "/app/next_build" ]; then
     echo "Copying Next.js build artifacts to /data/.next..."
     cp -r /app/next_build/. /data/.next/
@@ -18,14 +43,6 @@ if [ ! -f /data/.next/BUILD_ID ]; then
   else
     echo "Warning: No build artifacts found in /app/next_build"
   fi
-fi
-
-# Create symbolic link so the server can find .next directory in the writable location
-if [ ! -e "/app/.next" ]; then
-  echo "Creating symbolic link from /app/.next to /data/.next..."
-  ln -s /data/.next /app/.next
-else
-  echo "Note: /app/.next already exists, server will use existing location"
 fi
 
 # Apply database migrations.
