@@ -8,7 +8,7 @@ this repo shows one way to deploy a next.js app on docker when the image filesys
 - **databases need storage**: sqlite file, prisma migrations
 - **immutable images are safer**: fewer surprises; persistent data lives in a volume
 
-## how the dockerfile is structured
+## dockerfile ❓
 
 the dockerfile uses a 3‑stage build to keep the final image small and secure:
 
@@ -33,7 +33,7 @@ the dockerfile uses a 3‑stage build to keep the final image small and secure:
 
 the container exposes port `8080` and starts with `node server.js` (after the entrypoint finishes preparing files in `/data`).
 
-## what the entrypoint does (step by step)
+## entrypoint ❓
 
 the script `docker-entrypoint.sh` makes sure everything the app needs is in a writable place:
 
@@ -121,6 +121,11 @@ docker exec -it <container-id> sh -lc "./node_modules/.bin/prisma db push"
 
 - **404 on routes**
   - ensure `.next` artifacts are present under `/data/.next` (the entrypoint copies from `/app/next_build`)
+
+## todo
+
+- this project still NEEDS to be TESTED properly and thoroughly
+- check node_modules copying
 
 ## notes
 
