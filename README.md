@@ -133,3 +133,4 @@ docker exec -it <container-id> sh -lc "./node_modules/.bin/prisma db push"
 
 - the image uses a non‑root user and a writable volume to keep runtime safe and predictable
 - next.js standalone output plus a tiny entrypoint is a good fit for immutable images
+- PLEASE REPORT ALL ISSUES
