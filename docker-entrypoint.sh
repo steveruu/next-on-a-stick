@@ -2,7 +2,13 @@
 set -e
 
 # /data is the only writable place
+
+# ALWAYS sync static assets every start
 mkdir -p /data/.next
+rm -rf /data/.next/static
+cp -r /app/next_build/static /data/.next/
+cp /app/next_build/BUILD_ID /data/.next/BUILD_ID
+
 
 ########################################
 # 1. Copy runtime server bundle on first boot
