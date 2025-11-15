@@ -24,8 +24,17 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
+# Set DATABASE_URL for build time
+ENV DATABASE_URL="file:./prisma/sqlite.db"
+
 # Generate Prisma client
 RUN npx prisma generate
+
+# Create and migrate the build-time database
+RUN npx prisma migrate deploy || npx prisma db push
+
+# Seed the database for static generation
+RUN npx prisma db seed
 
 # Next.js collects completely anonymous telemetry data about general usage.
 # Learn more here: https://nextjs.org/telemetry
@@ -43,6 +52,9 @@ RUN \
 FROM base AS runner
 WORKDIR /app
 
+# Install Prisma CLI globally for runtime migrations
+RUN npm install -g prisma@6.19.0
+
 ENV NODE_ENV=production
 # Uncomment the following line in case you want to disable telemetry during runtime.
 # ENV NEXT_TELEMETRY_DISABLED=1
@@ -51,7 +63,7 @@ RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
 # Create a writable directory for dynamic data, and give 'nextjs' user ownership.
-RUN mkdir -p /data/.next && chown -R nextjs:nodejs /data
+RUN mkdir -p /data/.next /data/uploads && chown -R nextjs:nodejs /data
 
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/prisma ./prisma
@@ -62,12 +74,13 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./standalone/
 # Copy the complete .next directory for staging in a different location
 COPY --from=builder --chown=nextjs:nodejs /app/.next ./next_build/
 
-# Copy the full node_modules as backup in case standalone is incomplete
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules/
+# Copy generated Prisma Client (needed for migrations and runtime)
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
 
 ENV PORT=8080
 ENV HOSTNAME="0.0.0.0"
-ENV DATABASE_URL="file:/data/database.db"
+ENV DATABASE_URL="file:/data/sqlite.db"
 
 COPY docker-entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh

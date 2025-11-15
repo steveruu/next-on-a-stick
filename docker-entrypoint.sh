@@ -3,11 +3,27 @@ set -e
 
 # /data is the only writable place
 
+echo "[DEBUG] Starting entrypoint script..."
+echo "[DEBUG] Contents of /app/next_build:"
+ls -la /app/next_build/ || echo "ERROR: /app/next_build not found"
+echo "[DEBUG] Contents of /app/next_build/static:"
+ls -la /app/next_build/static/ || echo "ERROR: /app/next_build/static not found"
+
 # ALWAYS sync static assets every start
 mkdir -p /data/.next
 rm -rf /data/.next/static
 cp -r /app/next_build/static /data/.next/
 cp /app/next_build/BUILD_ID /data/.next/BUILD_ID
+
+echo "[DEBUG] BUILD_ID contents:"
+cat /data/.next/BUILD_ID
+echo ""
+echo "[DEBUG] Contents of /data/.next/static after copy:"
+ls -la /data/.next/static/ || echo "ERROR: /data/.next/static not found after copy"
+echo "[DEBUG] Contents of /data/.next/static/chunks:"
+ls -la /data/.next/static/chunks/ || echo "No chunks directory"
+echo "[DEBUG] Contents of /data/.next/static/mG-TVzzLFszL5cHRFQidp:"
+ls -la /data/.next/static/mG-TVzzLFszL5cHRFQidp/ || echo "No BUILD_ID directory"
 
 
 ########################################
@@ -34,38 +50,67 @@ if [ ! -f /data/server.js ]; then
     cp -r /app/prisma /data/
   fi
 
-  # If the pruned standalone node_modules is missing Prisma engines,
-  # patch them in from backup.
-  if [ -d "/app/node_modules" ] && [ ! -d "/data/node_modules/next" ]; then
-    # fallback: copy full node_modules if standalone was missing stuff
-    cp -r /app/node_modules /data/
-  elif [ -d "/app/node_modules/.prisma" ]; then
-    # lighter fallback: just prisma runtime bits
+  # Copy Prisma client from image - standalone might not include it
+  if [ -d "/app/node_modules/.prisma" ]; then
     mkdir -p /data/node_modules
-    cp -r /app/node_modules/.prisma /data/node_modules/ 2>/dev/null || true
-    cp -r /app/node_modules/prisma /data/node_modules/ 2>/dev/null || true
-    cp -r /app/node_modules/@prisma /data/node_modules/ 2>/dev/null || true
-    mkdir -p /data/node_modules/.bin
-    cp /app/node_modules/.bin/prisma /data/node_modules/.bin/ 2>/dev/null || true
+    cp -r /app/node_modules/.prisma /data/node_modules/
+    cp -r /app/node_modules/@prisma /data/node_modules/
   fi
+
+  echo "[init] Running database migrations (first boot)..."
+  cd /data
+  prisma migrate deploy || prisma db push
+  
+  echo "[init] Seeding database (first boot)..."
+  # For seeding, we need to temporarily use the full node_modules from /app
+  cd /app
+  DATABASE_URL="file:/data/sqlite.db" npx prisma db seed || echo "[init] Seeding failed or skipped"
+  
+  echo "[init] Database setup complete"
+  cd /data
 fi
+
+########################################
+# Always sync Prisma schema and client on every boot
+# This ensures we have the latest migrations and generated client
+########################################
+echo "[init] Syncing Prisma schema and migrations..."
+if [ -d "/app/prisma" ]; then
+  rm -rf /data/prisma
+  cp -r /app/prisma /data/
+fi
+
+# Always refresh Prisma Client to match the new schema
+echo "[init] Syncing Prisma Client..."
+if [ -d "/app/node_modules/.prisma" ]; then
+  mkdir -p /data/node_modules
+  rm -rf /data/node_modules/.prisma /data/node_modules/@prisma
+  cp -r /app/node_modules/.prisma /data/node_modules/
+  cp -r /app/node_modules/@prisma /data/node_modules/
+fi
+
+########################################
+# Run database migrations on EVERY boot
+# This ensures schema is always up-to-date
+########################################
+echo "[init] Running database migrations..."
+cd /data
+prisma migrate deploy || prisma db push
+cd /data
 
 ########################################
 # 2. Always sync static client assets
 #    (JS chunks, CSS, fonts)
 ########################################
-# We ALWAYS refresh .next/static and BUILD_ID from the image.
-# Why? So server.js and static assets are guaranteed to match.
+
 if [ -d "/app/next_build" ]; then
   echo "[init] Syncing Next.js static assets into /data/.next ..."
   mkdir -p /data/.next
 
-  # Copy static assets that the browser will request at /_next/static/*
-  rm -rf /data/.next/static
-  cp -r /app/next_build/static /data/.next/
+  # Copy ALL .next files needed for the server to work
+  cp -r /app/next_build/* /data/.next/
 
-  # Copy BUILD_ID used for cache-busting
-  cp /app/next_build/BUILD_ID /data/.next/BUILD_ID
+  echo "[init] Copied complete .next directory"
 else
   echo "[init] WARNING: /app/next_build not found, cannot sync static assets"
 fi
@@ -84,6 +129,11 @@ if [ ! -f /data/.next/BUILD_ID ]; then
 fi
 
 echo "[init] Startup OK. Launching app..."
+
+echo "[DEBUG] Final check - what's in /data/.next/:"
+ls -la /data/.next/
+echo "[DEBUG] server.js location:"
+ls -la /data/server.js
 
 ########################################
 # 4. Start the Next.js server
