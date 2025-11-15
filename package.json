@@ -1,17 +1,22 @@
 {
-    "name": "dockertest",
+    "name": "next-on-a-stick",
     "version": "0.1.0",
-    "private": true,
+    "bin": {
+        "next-on-a-stick": "./bin/next-on-a-stick.js"
+    },
     "scripts": {
         "dev": "next dev --turbopack",
         "build": "next build",
         "start": "next start",
-        "lint": "eslint"
+        "lint": "eslint",
+        "sync-templates": "node scripts/sync-templates.js"
     },
     "dependencies": {
+        "@babel/parser": "^7.26.5",
         "@prisma/client": "^6.16.2",
         "next": "15.5.3",
         "prisma": "^6.16.2",
+        "recast": "^0.23.9",
         "react": "19.1.0",
         "react-dom": "19.1.0"
     },

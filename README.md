@@ -91,6 +91,30 @@ docker run --rm `
 
 open `http://localhost:8080`.
 
+## `npx next-on-a-stick`
+
+run this helper inside an existing next.js project to drop in the docker/read‑only scaffolding from this repo:
+
+```bash
+npx next-on-a-stick
+```
+
+what it does:
+
+- creates/updates `Dockerfile`, `.dockerignore`, `docker-compose.yml`, and `docker-entrypoint.sh`
+- patches `next.config.*` so `output: "standalone"` + `images.unoptimized` + `outputFileTracingRoot`
+- keeps your files unless you pass `--force` (try `--dry-run` to preview changes)
+
+options:
+
+```
+npx next-on-a-stick --dry-run       # print the plan without touching files
+npx next-on-a-stick --force         # overwrite existing files
+npx next-on-a-stick --cwd ./path    # run against another folder
+```
+
+after it runs, build the image with `docker build -t my-app .` and `docker-compose up` if you want the helper compose file.
+
 ## environment
 
 - `DATABASE_URL` → use `file:/data/database.db` for sqlite stored in the mounted `/data` volume
@@ -127,10 +151,9 @@ docker exec -it <container-id> sh -lc "./node_modules/.bin/prisma db push"
 - this project still NEEDS to be TESTED properly and thoroughly
 - check node_modules copying
 - prisma migrations are basically untested
-- `npx next-on-a-stick`: template to start off with or modifying existing Next.js project
 
 ## notes
 
-- the image uses a non‑root user and a writable volume to keep runtime safe and predictable
+- the image uses a non-root user and a writable volume to keep runtime safe and predictable
 - next.js standalone output plus a tiny entrypoint is a good fit for immutable images
 - PLEASE REPORT ALL ISSUES
