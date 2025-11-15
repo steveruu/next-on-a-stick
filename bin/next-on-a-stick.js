@@ -9,7 +9,6 @@ const parser = require("@babel/parser");
 const TEMPLATES_DIR = path.join(__dirname, "..", "templates");
 const TEMPLATE_FILES = [
     { template: "Dockerfile", target: "Dockerfile" },
-    { template: "docker-compose.yml", target: "docker-compose.yml" },
     { template: ".dockerignore", target: ".dockerignore" },
     { template: "docker-entrypoint.sh", target: "docker-entrypoint.sh", mode: 0o755 },
 ];

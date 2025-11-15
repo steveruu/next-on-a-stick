@@ -101,7 +101,7 @@ npx next-on-a-stick
 
 what it does:
 
-- creates/updates `Dockerfile`, `.dockerignore`, `docker-compose.yml`, and `docker-entrypoint.sh`
+- creates/updates `Dockerfile`, `.dockerignore`, and `docker-entrypoint.sh`
 - patches `next.config.*` so `output: "standalone"` + `images.unoptimized` + `outputFileTracingRoot`
 - keeps your files unless you pass `--force` (try `--dry-run` to preview changes)
 
@@ -113,7 +113,7 @@ npx next-on-a-stick --force         # overwrite existing files
 npx next-on-a-stick --cwd ./path    # run against another folder
 ```
 
-after it runs, build the image with `docker build -t my-app .` and `docker-compose up` if you want the helper compose file.
+after it runs, build the image with `docker build -t my-app .`.
 
 ## environment
 

@@ -8,7 +8,6 @@ const ROOT = path.join(__dirname, "..");
 const FILES = [
     ["Dockerfile", "templates/Dockerfile"],
     ["docker-entrypoint.sh", "templates/docker-entrypoint.sh"],
-    ["docker-compose.yml", "templates/docker-compose.yml"],
 ];
 
 for (const [sourceRel, destRel] of FILES) {
